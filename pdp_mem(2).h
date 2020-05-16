@@ -7,6 +7,7 @@ word get_word(int addr);
 byte get_byte(int addr);
 void put_word(int addr, word data);
 void put_byte(int addr, byte data);
+void pdp_dump(void);
 int load(const char * filename, word * pstart);
 extern word regs[8];
 extern word psw;

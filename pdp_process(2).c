@@ -15,38 +15,83 @@
 	else\
 		psw&=~(f);\
 }
+void print_oct(word x)
+{
+	int t;
+	for (t = 15;t>=0;t-=3)
+		putchar('0'+((x>>t)&7));
+}
 
 static int get_addr(word mode, word reg, int sz)
 {
 	switch (mode)
 	{
-		case 0: return -reg-1;
-		case 1: return regs[reg];
+		case 0: printf("R%d",reg); 
+			return -reg-1;
+		case 1: printf("(R%d)", reg);
+			return regs[reg];
 		case 2: { 
 			 	int v = regs[reg];
+				if (reg == 7)
+				{
+					printf("#");
+					print_oct(get_word(PC));
+				}
+				else
+					printf("(R%d)+",reg);
 				regs[reg]+=sz;
 				return v;
 			}
 		case 3: {
 				int v = regs[reg];
+				if (reg == 7)
+				{
+					printf("@#");
+					print_oct(get_word(PC));
+				}
+				else
+					printf("@(R%d)+",reg);
+
 				regs[reg]+=sz;
 				return get_word(v);
 			}
-		case 4:	return regs[reg]-=sz;
-		case 5:	return get_word(regs[reg]-=sz);
+		case 4:	printf("-(R%d)",reg);
+			return regs[reg]-=sz;
+		case 5:	printf("@-(R%d)",reg);
+			return get_word(regs[reg]-=sz);
 		case 6: {
 				word w = get_word(PC);	
+				if (reg == 7)
+					print_oct(w);
+				else
+				{
+					print_oct(w);
+					printf("(R%d)",reg);
+				}
 				PC+=2;
 				return (w+regs[reg])&0xFFFF;
 			}
 		case 7: {
 				word w = get_word(PC);
+				if (reg == 7)
+				{
+					printf("@");
+					print_oct(w);
+				}
+				else
+				{
+					printf("@");
+					print_oct(w);
+					printf("(R%d)",reg);
+				}
+
 				return get_word((w+regs[reg])&0xFFFF);
 			}
 		default: return -65536;
 	}
 	return -65536;
 }
+
 
 static int is_neg(word x)
 {
@@ -64,11 +109,28 @@ static void not_impl()
 	exit(1);
 }
 
+void print_cmd_oct(word cmd, word save_PC)
+{
+	printf("\t|");
+	print_oct(cmd);
+	for (;save_PC != PC;save_PC+=2)
+	{
+		printf("\t");
+		print_oct(get_word(save_PC));
+	}
+	printf("\n");
+}
+
 static void do_mov(word cmd)
 {
-	word src = get_word(get_addr(ARG1_MODE(cmd), ARG1_REG(cmd),2));
-	int dst_addr = get_addr(ARG2_MODE(cmd),ARG2_REG(cmd),2);
+	word src, save_PC = PC;
+	int dst_addr;
+	printf("mov\t");
+	src = get_word(get_addr(ARG1_MODE(cmd), ARG1_REG(cmd),2));
+	printf(",\t");
+	dst_addr = get_addr(ARG2_MODE(cmd),ARG2_REG(cmd),2);
 	put_word(dst_addr,src);
+	print_cmd_oct(cmd, save_PC);
 	SETF(VF,0);
 	SETF(ZF,src == 0);
 	SETF(NF, is_neg(src));
@@ -76,16 +138,28 @@ static void do_mov(word cmd)
 
 static void do_add(word cmd)
 {
-	word src = get_word(get_addr(ARG1_MODE(cmd), ARG1_REG(cmd),2));
-	int dst_addr = get_addr(ARG2_MODE(cmd),ARG2_REG(cmd),2);
+	word src, save_PC = PC;
+	int dst_addr;
+	printf("add\t");
+	src = get_word(get_addr(ARG1_MODE(cmd), ARG1_REG(cmd),2));
+	printf(",\t");
+	dst_addr = get_addr(ARG2_MODE(cmd),ARG2_REG(cmd),2);
 	word dst = get_word(dst_addr);
 	uint32_t r1 = src+dst;
 	word res = (word)r1;
 	put_word(dst_addr, res);
+	print_cmd_oct(cmd, save_PC);
 	SETF(ZF,  res == 0 );
 	SETF(CF,  r1 != res );
 	SETF(VF,  sgn(src) == sgn(dst) && sgn(src) != sgn(res) );
 	SETF(NF,  is_neg(res) );
+}
+
+static void do_halt(word cmd)
+{
+	word save_PC = PC;
+	printf("halt");
+	print_cmd_oct(cmd, save_PC);
 }
 
 int do_cmd(void)
@@ -111,6 +185,9 @@ int do_cmd(void)
 			not_impl();
 	}
 	if (cmd == 0 )
+	{
+		do_halt(cmd);
 		return 0;
+	}
 	not_impl();
 }

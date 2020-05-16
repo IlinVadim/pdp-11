@@ -65,3 +65,14 @@ err:
 		fclose(f);
 	return 0;
 }
+
+void pdp_dump(void)
+{
+	int i;
+	printf("Regs:\tR0\tR1\tR2\tR3\tR4\tR5\tSP\tPC\tFlags\n");
+	printf("Values:");
+	for (i=0;i<8;i++)
+		printf("\t%04x",regs[i]);
+	printf("\t%c%c%c%c\n",(psw&NF)?'N':'-',(psw&ZF)?'Z':'-',(psw&VF)?'V':'-',(psw&CF)?'C':'-');
+	printf("\n");
+}
